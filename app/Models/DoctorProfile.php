@@ -22,6 +22,20 @@ class DoctorProfile extends Model
         'license_no',
         'bio',
         'avatar_url',
+        // ✅ الحقول الجديدة المضافة
+        'working_days', 
+        'start_time',
+        'end_time',
+        'shift_type',
+    ];
+
+    /**
+     * 🛠️ تحويل البيانات تلقائياً (Casting)
+     * يساعد هذا في التعامل مع الوقت ككائن أو تنسيق معين
+     */
+    protected $casts = [
+        'start_time' => 'string', // أو 'datetime:H:i' حسب رغبتك في الواجهة
+        'end_time'   => 'string',
     ];
 
     /**

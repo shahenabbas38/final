@@ -24,6 +24,7 @@ use App\Http\Controllers\RatingController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\NutritionRecommendationController;
+use App\Http\Controllers\AdminWebAuthController;
 
 
 
@@ -78,6 +79,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // 🗑️ حذف بروفايل طبيب
         Route::delete('/profile/{id}', [DoctorProfileController::class, 'destroy']);
+        // ✅ السطر الجديد: جلب المرضى الخاصين بالطبيب فقط
+        Route::get('/my-patients', [DoctorProfileController::class, 'getMyPatients']);
     });
 
     /*************** CLINICS *********************************/
@@ -243,15 +246,15 @@ Route::middleware('auth:sanctum')->group(function () {
 });
     /***************Admin*************************************/
 
-Route::prefix('admin')->group(function () {
-    Route::post('/register', [AdminAuthController::class, 'register']);  // يمكن حذفه إذا التسجيل فقط من طرف النظام
-    Route::post('/login', [AdminAuthController::class, 'login']);
-    Route::middleware(['auth:sanctum'])->group(function () {
-        Route::post('/logout', [AdminAuthController::class, 'logout']);
-        Route::get('/profile', [AdminAuthController::class, 'profile']);
-        Route::get('/all', [AdminAuthController::class, 'index']);
-    });
-});
+// Route::prefix('admin')->group(function () {
+//     Route::post('/register', [AdminAuthController::class, 'register']);  // يمكن حذفه إذا التسجيل فقط من طرف النظام
+//     Route::post('/login', [AdminAuthController::class, 'login']);
+//     Route::middleware(['auth:sanctum'])->group(function () {
+//         Route::post('/logout', [AdminAuthController::class, 'logout']);
+//         Route::get('/profile', [AdminAuthController::class, 'profile']);
+//         Route::get('/all', [AdminAuthController::class, 'index']);
+//     });
+// });
 
 
 Route::middleware('auth:sanctum')->group(function () {
