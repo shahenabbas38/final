@@ -12,44 +12,39 @@ use Illuminate\Support\Facades\Auth;
 class ChatController extends Controller
 {
     /**
-     * 🟢 إنشاء محادثة جديدة
+     * 🟢 إنشاء محادثة جديدة وإضافة عضو مباشرة
      */
-    public function createConversation()
+    public function createConversation(Request $request)
     {
+        // تم التعديل لطلب user_id بدلاً من إنشاء محادثة فارغة
+        $request->validate([
+            'user_id' => 'required|exists:users,id'
+        ]);
+
         $conversation = ChatConversation::create([
             'created_at' => now(),
         ]);
 
+        // إضافة المنشئ
         ChatMember::create([
             'conversation_id' => $conversation->id,
             'user_id' => Auth::id(),
         ]);
 
+        // إضافة الطرف الآخر مباشرة (توفيراً للوقت والطلبات)
+        ChatMember::create([
+            'conversation_id' => $conversation->id,
+            'user_id' => $request->user_id,
+        ]);
+
         return response()->json([
-            'message' => 'Conversation created successfully ✅',
+            'message' => 'Conversation created successfully with member ✅',
             'conversation' => $conversation
         ], 201);
     }
 
     /**
-     * 👥 إضافة عضو جديد لمحادثة
-     */
-    public function addMember(Request $request, $conversationId)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id'
-        ]);
-
-        ChatMember::firstOrCreate([
-            'conversation_id' => $conversationId,
-            'user_id' => $request->user_id,
-        ]);
-
-        return response()->json(['message' => 'Member added successfully ✅']);
-    }
-
-    /**
-     * 💬 إرسال رسالة (مع تشفير تلقائي)
+     * 💬 إرسال رسالة (دعم التشفير أو النص العادي)
      */
     public function sendMessage(Request $request)
     {
@@ -62,35 +57,36 @@ class ChatController extends Controller
         $conversationId = $request->conversation_id;
         $senderId = Auth::id();
 
-        // ✅ تحقق أن المستخدم عضو في المحادثة
         $isMember = ChatMember::where('conversation_id', $conversationId)
             ->where('user_id', $senderId)
             ->exists();
 
         if (!$isMember) {
-            return response()->json(['message' => 'You are not a member of this conversation ❌'], 403);
+            return response()->json(['message' => 'You are not a member ❌'], 403);
         }
 
-        // 📥 اجلب كل أعضاء المحادثة
         $members = ChatMember::where('conversation_id', $conversationId)->get();
-
         $originalText = $request->body;
         $encryptedPayload = [];
 
-        // 🛡️ تشفير الرسالة لكل مستخدم (حتى المرسل نفسه)
         foreach ($members as $member) {
             $recipient = User::find($member->user_id);
-            if (!$recipient || !$recipient->public_key) continue;
-
-            $publicKey = openssl_pkey_get_public($recipient->public_key);
-
-            if ($publicKey) {
-                openssl_public_encrypt($originalText, $encrypted, $publicKey);
-                $encryptedPayload[$recipient->id] = base64_encode($encrypted);
+            
+            // قمنا بتعديل المنطق هنا:
+            // 1. إذا وجد مفتاح تشفير، يتم التشفير
+            if ($recipient && $recipient->public_key) {
+                $publicKey = openssl_pkey_get_public($recipient->public_key);
+                if ($publicKey) {
+                    openssl_public_encrypt($originalText, $encrypted, $publicKey);
+                    $encryptedPayload[$recipient->id] = base64_encode($encrypted);
+                    continue; // ننتقل للعضو التالي
+                }
             }
+
+            // 2. إذا لم يوجد مفتاح، يتم تخزين النص العادي (هذا يحل مشكلة الـ null)
+            $encryptedPayload[$recipient->id] = $originalText;
         }
 
-        // 📝 تخزين الرسالة المشفرة بشكل JSON (مشفرة لكل مستلم)
         $message = ChatMessage::create([
             'conversation_id' => $conversationId,
             'sender_user_id'  => $senderId,
@@ -105,9 +101,8 @@ class ChatController extends Controller
         ], 201);
     }
 
-    /**
-     * 📜 عرض محادثات المستخدم
-     */
+    // ... باقي الدوال (myConversations, getMessages, markAsSeen) تبقى كما هي لأن منطقها سليم
+    
     public function myConversations()
     {
         $conversations = ChatConversation::whereHas('members', function($q){
@@ -119,9 +114,6 @@ class ChatController extends Controller
         return response()->json(['conversations' => $conversations]);
     }
 
-    /**
-     * 📨 عرض الرسائل (مشفّرة — لا يفك السيرفر التشفير)
-     */
     public function getMessages($conversationId)
     {
         $userId = Auth::id();
@@ -130,9 +122,9 @@ class ChatController extends Controller
             ->orderBy('sent_at', 'asc')
             ->get();
 
-        // 🧠 إرجاع فقط الرسالة المشفرة الخاصة بالمستخدم الحالي
         $messages = $messages->map(function ($msg) use ($userId) {
             $payload = json_decode($msg->body, true);
+            // سيتم إرجاع النص (سواء كان مشفراً أو عادياً) بدلاً من null
             $msg->body = $payload[$userId] ?? null;
             return $msg;
         });
@@ -140,9 +132,6 @@ class ChatController extends Controller
         return response()->json(['messages' => $messages]);
     }
 
-    /**
-     * 👁️ تعليم رسالة كمقروءة
-     */
     public function markAsSeen($messageId)
     {
         $message = ChatMessage::findOrFail($messageId);
