@@ -2,73 +2,74 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\NutritionRecommendation;
-use App\Models\PatientProfile;
+use App\Models\PatientProfile; // تأكد من استدعاء موديل البروفايل
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class NutritionRecommendationController extends Controller
 {
-    // 📥 عرض معلومات المريض + التوصيات
-    public function index(Request $request)
-    {
-        $patientId = $request->user()->id;
-
-        // 🧑‍⚕️ جلب معلومات المريض
-        $patient = PatientProfile::where('user_id', $patientId)->first();
-
-        if (!$patient) {
-            return response()->json([
-                'message' => '⚠️ Patient profile not found'
-            ], 404);
-        }
-
-        // 📊 جلب التوصيات مرتبة حسب نوع الوجبة
-        $recommendations = NutritionRecommendation::where('patient_id', $patientId)
-            ->orderByRaw("FIELD(meal_type, 'BREAKFAST', 'LUNCH', 'DINNER')")
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'message' => 'Recommendations fetched successfully ✅',
-            'patient' => [
-                'id' => $patient->user_id,
-                'full_name' => $patient->full_name,
-                'gender' => $patient->gender,
-                'dob' => $patient->dob,
-                'height_cm' => $patient->height_cm,
-                'weight_kg' => $patient->weight_kg,
-                'primary_condition' => $patient->primary_condition,
-                'address' => $patient->address,
-                'emergency_contact' => $patient->emergency_contact,
-                'avatar_url' => $patient->avatar_url,
-            ],
-            'recommendations' => $recommendations
-        ]);
-    }
-
-    // ➕ إضافة توصيات جديدة (من الذكاء الاصطناعي)
     public function store(Request $request)
     {
-        $request->validate([
-            'recommendations' => 'required|array'
+        $user = Auth::user();
+        
+        // 1. جلب بيانات المريض اللازمة للحسابات
+        $profile = PatientProfile::where('user_id', $user->id)->first();
+        
+        if (!$profile) {
+            return response()->json(['message' => 'بروفايل المريض غير مكتمل'], 404);
+        }
+
+        // 2. تحضير البيانات لإرسالها للذكاء الاصطناعي
+        $patientData = json_encode([
+            'weight_kg' => $profile->weight_kg,
+            'height_cm' => $profile->height_cm,
+            'gender' => $profile->gender,
+            'primary_condition' => $profile->primary_condition
         ]);
 
-        foreach ($request->recommendations as $rec) {
-            NutritionRecommendation::create([
-                'patient_id'    => $request->user()->id,
-                'food_name'     => $rec['food_name'],
-                'calories'      => $rec['calories'],
-                'protein'       => $rec['protein'],
-                'carbohydrates' => $rec['carbohydrates'],
-                'fat'           => $rec['fat'],
-                'description'   => $rec['description'] ?? '',
-                'confidence'    => $rec['confidence'] ?? 0,
-                'meal_type'     => $rec['meal_type'] ?? null, // ✅ دعم meal_type
-            ]);
+        // 3. تشغيل السكريبت
+        $pythonPath = base_path('food_recommendation.py');
+        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($patientData);
+        $output = shell_exec($command);
+        $result = json_decode($output, true);
+
+        if (!$result || isset($result['error'])) {
+            return response()->json(['error' => 'خطأ في نظام التوصيات', 'details' => $result['error'] ?? 'No output'], 500);
+        }
+
+        // 4. حفظ الـ 15 توصية (فطور، غداء، عشاء) في قاعدة البيانات
+        $savedData = [];
+        foreach (['breakfast', 'lunch', 'dinner'] as $mealKey) {
+            foreach ($result[$mealKey] as $item) {
+                $savedData[] = NutritionRecommendation::create([
+                    'patient_id'    => $user->id,
+                    'food_name'     => $item['food_name'],
+                    'meal_type'     => $item['meal_type'],
+                    'calories'      => $item['calories'],
+                    'protein'       => $item['protein'],
+                    'carbohydrates' => $item['carbohydrates'],
+                    'fat'           => $item['fat'],
+                    'description'   => $item['description'],
+                    'confidence'    => $item['confidence'],
+                ]);
+            }
         }
 
         return response()->json([
-            'message' => 'Recommendations saved successfully ✅'
+            'message' => 'تم توليد خطة غذائية كاملة (15 وجبة)',
+            'data' => $result // نرجع الـ JSON المرتب مباشرة للفلاتر
         ], 201);
+    }
+
+    // جلب توصيات المريض المسجل فقط مرتبة
+    public function getMyRecommendations()
+    {
+        $recommendations = NutritionRecommendation::where('patient_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('meal_type'); // تقسيمهم حسب نوع الوجبة
+
+        return response()->json($recommendations);
     }
 }

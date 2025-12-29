@@ -258,8 +258,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/nutrition/recommendations', [NutritionRecommendationController::class, 'index']);
-    Route::post('/nutrition/recommendations', [NutritionRecommendationController::class, 'store']);
-    Route::get('/nutrition/patient/full', [NutritionRecommendationController::class, 'index']); // ✅ تم تعديلها
-
+    Route::get('/nutrition/recommendations', [NutritionRecommendationController::class, 'index']); // عرض الكل
+    Route::post('/nutrition/recommendations/generate', [NutritionRecommendationController::class, 'store']); // توليد جديد
+    Route::get('/nutrition/my-plan', [NutritionRecommendationController::class, 'getMyRecommendations']); // ✅ خطة المريض الحالية
 });
