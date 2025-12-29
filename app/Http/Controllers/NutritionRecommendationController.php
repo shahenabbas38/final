@@ -44,7 +44,7 @@ class NutritionRecommendationController extends Controller
         // 4. تنفيذ الأمر
         $jsonParams = json_encode($patientParams);
         // نستخدم python3 للتوافق مع Railway
-        $command = "python " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
+        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
         
         $output = shell_exec($command);
         $result = json_decode($output, true);
