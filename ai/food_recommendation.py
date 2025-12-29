@@ -8,8 +8,10 @@ import sys
 import pandas as pd
 
 # 📂 إعدادات المسارات
+# 📂 إعدادات المسارات المعدلة لتناسب هيكلية Git الخاصة بك
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATASET_DIR = os.path.join(BASE_DIR, "FINAL FOOD DATASET")
+# أضفنا 'ai' للمسار لأن الملفات موجودة بداخله كما ظهر في الـ Terminal
+DATASET_DIR = os.path.join(BASE_DIR, "ai", "FINAL FOOD DATASET")
 
 # 🧠 احتمالات أسماء الأعمدة
 NAME_CANDIDATES = ["food", "Unnamed: 1", "Name"]
