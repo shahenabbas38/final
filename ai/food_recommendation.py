@@ -8,17 +8,24 @@ import sys
 import pandas as pd
 from datetime import datetime
 
-# 📂 وظيفة تحديد المسارات
+# 📂 وظيفة تحديد المسارات المعدلة لتعمل من داخل مجلد ai
 def get_dataset_path():
+    # base_dir هنا ستكون مسار مجلد ai لأن الملف موجود بداخله
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    
     possible_paths = [
-        os.path.join(base_dir, "ai", "FINAL FOOD DATASET"),
-        os.path.join(base_dir, "FINAL FOOD DATASET")
+        # الاحتمال الأول: المجلد موجود بجانب ملف البايثون مباشرة (داخل ai)
+        os.path.join(base_dir, "FINAL FOOD DATASET"),
+        # الاحتمال الثاني: المجلد موجود في المسار الرئيسي (خارج ai)
+        os.path.join(os.path.dirname(base_dir), "FINAL FOOD DATASET"),
+        # الاحتمال الثالث: المسار الكامل كما في Railway
+        os.path.join(base_dir, "ai", "FINAL FOOD DATASET")
     ]
+    
     for path in possible_paths:
-        if os.path.exists(path): return path
+        if os.path.exists(path):
+            return path
     return None
-
 DATASET_DIR = get_dataset_path()
 
 # 🧠 تعريف الأعمدة
