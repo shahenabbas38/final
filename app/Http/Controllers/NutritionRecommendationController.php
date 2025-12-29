@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\NutritionRecommendation;
-use App\Models\PatientProfile; // تأكد من استدعاء موديل البروفايل
+use App\Models\PatientProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,63 +13,64 @@ class NutritionRecommendationController extends Controller
     {
         $user = Auth::user();
         
-        // 1. جلب بيانات المريض اللازمة للحسابات
+        // 1. جلب بروفايل المريض كامل ببياناته الشخصية
         $profile = PatientProfile::where('user_id', $user->id)->first();
         
         if (!$profile) {
-            return response()->json(['message' => 'بروفايل المريض غير مكتمل'], 404);
+            return response()->json(['message' => 'بروفايل المريض غير موجود في النظام'], 404);
         }
 
-        // 2. تحضير البيانات لإرسالها للذكاء الاصطناعي
-        $patientData = json_encode([
-            'weight_kg' => $profile->weight_kg,
-            'height_cm' => $profile->height_cm,
-            'gender' => $profile->gender,
-            'primary_condition' => $profile->primary_condition
-        ]);
+        // 2. تحضير كافة البيانات الشخصية لإرسالها لموديل الذكاء الاصطناعي
+        $patientParams = [
+            'full_name'         => $profile->full_name,
+            'weight_kg'         => (float) $profile->weight_kg,
+            'height_cm'         => (float) $profile->height_cm,
+            'gender'            => $profile->gender,
+            'primary_condition' => $profile->primary_condition,
+            'dob'               => $profile->dob, // تاريخ الميلاد لحساب العمر إن لزم
+        ];
 
-        // 3. تشغيل السكريبت
+        // 3. استدعاء سكريبت البايثون
         $pythonPath = base_path('food_recommendation.py');
-        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($patientData);
+        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg(json_encode($patientParams)) . " 2>&1";
         $output = shell_exec($command);
         $result = json_decode($output, true);
 
+        // 4. التحقق من وجود أخطاء في السكريبت
         if (!$result || isset($result['error'])) {
-            return response()->json(['error' => 'خطأ في نظام التوصيات', 'details' => $result['error'] ?? 'No output'], 500);
+            return response()->json([
+                'error' => 'خطأ في معالجة البيانات من قبل الذكاء الاصطناعي',
+                'details' => $result['error'] ?? 'No output from script'
+            ], 500);
         }
 
-        // 4. حفظ الـ 15 توصية (فطور، غداء، عشاء) في قاعدة البيانات
-        $savedData = [];
-        foreach (['breakfast', 'lunch', 'dinner'] as $mealKey) {
-            foreach ($result[$mealKey] as $item) {
-                $savedData[] = NutritionRecommendation::create([
+        // 5. حفظ الـ 15 وجبة الناتجة في قاعدة البيانات مع ربطها بالمريض
+        foreach (['breakfast', 'lunch', 'dinner'] as $mealCategory) {
+            foreach ($result[$mealCategory] as $meal) {
+                NutritionRecommendation::create([
                     'patient_id'    => $user->id,
-                    'food_name'     => $item['food_name'],
-                    'meal_type'     => $item['meal_type'],
-                    'calories'      => $item['calories'],
-                    'protein'       => $item['protein'],
-                    'carbohydrates' => $item['carbohydrates'],
-                    'fat'           => $item['fat'],
-                    'description'   => $item['description'],
-                    'confidence'    => $item['confidence'],
+                    'food_name'     => $meal['food_name'],
+                    'meal_type'     => $meal['meal_type'],
+                    'calories'      => $meal['calories'],
+                    'protein'       => $meal['protein'],
+                    'carbohydrates' => $meal['carbohydrates'],
+                    'fat'           => $meal['fat'],
+                    'description'   => $meal['description'],
+                    'confidence'    => $meal['confidence'],
+                    'created_at'    => now()
                 ]);
             }
         }
 
+        // 6. الرد النهائي لـ Flutter (يحتوي على بيانات المريض الشخصية + التوصيات)
         return response()->json([
-            'message' => 'تم توليد خطة غذائية كاملة (15 وجبة)',
-            'data' => $result // نرجع الـ JSON المرتب مباشرة للفلاتر
+            'status' => 'success',
+            'patient_profile' => $result['patient_info'], // البيانات الشخصية التي حسبها الموديل
+            'daily_plan' => [
+                'breakfast' => $result['breakfast'],
+                'lunch'     => $result['lunch'],
+                'dinner'    => $result['dinner']
+            ]
         ], 201);
-    }
-
-    // جلب توصيات المريض المسجل فقط مرتبة
-    public function getMyRecommendations()
-    {
-        $recommendations = NutritionRecommendation::where('patient_id', Auth::id())
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('meal_type'); // تقسيمهم حسب نوع الوجبة
-
-        return response()->json($recommendations);
     }
 }

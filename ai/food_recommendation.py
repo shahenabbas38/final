@@ -7,110 +7,103 @@ import random
 import sys
 import pandas as pd
 
-# 📂 إعدادات المسارات
-# 📂 إعدادات المسارات المعدلة لتناسب هيكلية Git الخاصة بك
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# أضفنا 'ai' للمسار لأن الملفات موجودة بداخله كما ظهر في الـ Terminal
-DATASET_DIR = os.path.join(BASE_DIR, "ai", "FINAL FOOD DATASET")
-
-# 🧠 احتمالات أسماء الأعمدة
-NAME_CANDIDATES = ["food", "Unnamed: 1", "Name"]
-CAL_CANDIDATES = ["Caloric Value", "Calories", "Energy"]
-PROTEIN_CANDIDATES = ["Protein", "protein"]
-CARB_CANDIDATES = ["Carbohydrates", "Carbs"]
-FAT_CANDIDATES = ["Fat", "fat"]
-
-def find_column(df, candidates):
-    for cand in candidates:
-        if cand in df.columns: return cand
-    for c in df.columns:
-        for cand in candidates:
-            if cand.lower() in str(c).lower(): return c
+# 📂 وظيفة تحديد المسارات (للتوافق مع Railway و Git)
+def get_dataset_path():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    possible_paths = [
+        os.path.join(base_dir, "ai", "FINAL FOOD DATASET"),
+        os.path.join(base_dir, "FINAL FOOD DATASET")
+    ]
+    for path in possible_paths:
+        if os.path.exists(path): return path
     return None
 
-def calculate_daily_calories(weight, height, gender):
+DATASET_DIR = get_dataset_path()
+
+# 🧠 تعريف الأعمدة المستهدفة في ملفات الـ CSV
+COLUMN_MAP = {
+    'name': ["food", "Unnamed: 1", "Name"],
+    'cal': ["Caloric Value", "Calories", "Energy"],
+    'prot': ["Protein", "protein"],
+    'carb': ["Carbohydrates", "Carbs"],
+    'fat': ["Fat", "fat"]
+}
+
+def find_col(df, candidates):
+    for c in candidates:
+        if c in df.columns: return c
+    return None
+
+def calculate_bmr(weight, height, gender):
+    # معادلة Mifflin-St Jeor لحساب السعرات الأساسية
     if str(gender).lower() == "male":
-        bmr = 10 * weight + 6.25 * height - 5 * 30 + 5
+        return (10 * weight) + (6.25 * height) - (5 * 30) + 5
     else:
-        bmr = 10 * weight + 6.25 * height - 5 * 30 - 161
-    return bmr * 1.2
+        return (10 * weight) + (6.25 * height) - (5 * 30) - 161
 
 def generate_recommendations(profile):
     try:
+        if not DATASET_DIR:
+            return {"error": "Dataset folder not found. Check path: ai/FINAL FOOD DATASET"}
+
         # تحميل البيانات
-        frames = [pd.read_csv(os.path.join(DATASET_DIR, f)) 
-                  for f in os.listdir(DATASET_DIR) if f.endswith(".csv")]
-        df = pd.concat(frames, ignore_index=True)
+        files = [f for f in os.listdir(DATASET_DIR) if f.endswith(".csv")]
+        df = pd.concat([pd.read_csv(os.path.join(DATASET_DIR, f)) for f in files], ignore_index=True)
 
-        # اكتشاف الأعمدة
-        name_col = find_column(df, NAME_CANDIDATES)
-        cal_col = find_column(df, CAL_CANDIDATES)
-        protein_col = find_column(df, PROTEIN_CANDIDATES)
-        carb_col = find_column(df, CARB_CANDIDATES)
-        fat_col = find_column(df, FAT_CANDIDATES)
+        # تحديد أسماء الأعمدة الفعلية وتنظيف البيانات
+        cols = {k: find_col(df, v) for k, v in COLUMN_MAP.items()}
+        for c in [cols['cal'], cols['prot'], cols['carb'], cols['fat']]:
+            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
 
-        # تنظيف البيانات
-        for col in [cal_col, carb_col, protein_col, fat_col]:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        # استخراج بيانات المريض الشخصية
+        name = profile.get('full_name', 'Unknown Patient')
+        weight = float(profile.get('weight_kg', 70))
+        height = float(profile.get('height_cm', 170))
+        gender = profile.get('gender', 'male')
+        condition = str(profile.get('primary_condition', 'None')).upper()
 
-        weight = float(profile.get("weight_kg", 70))
-        height = float(profile.get("height_cm", 170))
-        gender = (profile.get("gender") or "male").lower()
-        condition = (profile.get("primary_condition") or "").upper()
+        # الحسابات الطبية
+        daily_calories = calculate_bmr(weight, height, gender) * 1.2
+        max_meal_cal = daily_calories / 3
 
-        daily_cal = calculate_daily_calories(weight, height, gender)
-        max_meal_cal = daily_cal / 3
-
-        # 🩺 الفلترة حسب الحالة الصحية
-        filtered = df[df[cal_col] <= max_meal_cal].copy()
+        # فلترة ذكية بناءً على الحالة الصحية (سكري، سمنة، الخ)
+        filtered = df[df[cols['cal']] <= max_meal_cal].copy()
         if "DIABETES" in condition:
-            filtered = filtered[filtered[carb_col] <= 30]
+            filtered = filtered[filtered[cols['carb']] <= 30]
         elif "OBESITY" in condition:
-            filtered = filtered[filtered[fat_col] <= 15]
+            filtered = filtered[filtered[cols['fat']] <= 15]
 
-        # حساب الترتيب (Score)
-        filtered["score"] = (1 / (1 + filtered[cal_col])) + (filtered[protein_col] / (filtered[carb_col] + 1))
-        filtered = filtered.sort_values(by="score", ascending=False)
+        def create_meal_list(data, meal_type):
+            items = data.sample(n=5) if len(data) >= 5 else data
+            return [{
+                "food_name": str(row[cols['name']]),
+                "calories": float(row[cols['cal']]),
+                "protein": float(row[cols['prot']]),
+                "carbohydrates": float(row[cols['carb']]),
+                "fat": float(row[cols['fat']]),
+                "description": f"وجبة موصى بها لحالة {condition}",
+                "confidence": round(random.uniform(0.9, 0.99), 2),
+                "meal_type": meal_type
+            } for _, row in items.iterrows()]
 
-        # 🍽️ تجهيز القوائم (أفضل 15 خيار)
-        total = filtered.head(15)
-        
-        def to_list(df_slice, meal_type):
-            return [
-                {
-                    "food_name": str(row[name_col]),
-                    "calories": float(row[cal_col]),
-                    "protein": float(row[protein_col]),
-                    "carbohydrates": float(row[carb_col]),
-                    "fat": float(row[fat_col]),
-                    "description": "🍽️ اختيار ذكي بناءً على حالتك الصحية واحتياج السعرات",
-                    "confidence": round(random.uniform(0.9, 0.99), 2),
-                    "meal_type": meal_type
-                }
-                for _, row in df_slice.iterrows()
-            ]
-
-        # إرجاع الخرج المرتب
+        # النتيجة النهائية (تتضمن المعلومات الشخصية)
         return {
-            "breakfast": to_list(total.head(5), "BREAKFAST"),
-            "lunch": to_list(total.iloc[5:10], "LUNCH"),
-            "dinner": to_list(total.iloc[10:15], "DINNER")
+            "patient_info": {
+                "full_name": name,
+                "weight": f"{weight} kg",
+                "height": f"{height} cm",
+                "condition": condition,
+                "calculated_daily_calories": round(daily_calories, 2)
+            },
+            "breakfast": create_meal_list(filtered, "BREAKFAST"),
+            "lunch": create_meal_list(filtered, "LUNCH"),
+            "dinner": create_meal_list(filtered, "DINNER")
         }
 
     except Exception as e:
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    # قراءة المدخلات من Laravel
     if len(sys.argv) > 1:
-        try:
-            input_data = json.loads(sys.argv[1])
-            recs = generate_recommendations(input_data)
-            
-            # 🎀 طباعة الخرج بتنسيق مرتب جداً (JSON Indented)
-            print(json.dumps(recs, ensure_ascii=False, indent=2))
-            
-        except Exception as e:
-            print(json.dumps({"error": f"Invalid input or processing error: {str(e)}"}))
-    else:
-        print(json.dumps({"error": "No patient data provided"}))
+        data = json.loads(sys.argv[1])
+        print(json.dumps(generate_recommendations(data), ensure_ascii=False))
