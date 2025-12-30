@@ -30,30 +30,32 @@ class NutritionRecommendationController extends Controller
             'dob'               => $profile->dob,
         ];
 
-        // 3. تحديد المسار الصحيح (مجلد ai بجانب مجلد app في الـ Root)
+        // 3. تحديد المسار المطلق لملف البايثون
         $pythonPath = base_path('ai/food_recommendation.py');
         
         if (!file_exists($pythonPath)) {
             return response()->json([
-                'error' => 'الملف البرمجي للبايثون غير موجود في المسار المحدد',
+                'error' => 'الملف البرمجي للبايثون غير موجود',
                 'checked_path' => $pythonPath
             ], 500);
         }
 
-        // 4. تنفيذ الأمر مع التأكد من مسار البيئة في Railway
+        // 4. تنفيذ الأمر مع إجبار النظام على البحث في مسارات Nixpacks
         $jsonParams = json_encode($patientParams);
         
-        // تعديل الأمر لضمان إيجاد python3 في بيئة Nixpacks
-// استبدل السطر الخاص بـ $command بهذا الكود
-        $command = "which python3 && python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        $output = shell_exec($command);
+        // تعديل جوهري: إضافة المسارات الشائعة لبيئات Nixpacks و Heroku في Railway
+        $envPaths = "PATH=\$PATH:/usr/bin:/usr/local/bin:/opt/nix/bin:/nix/var/nix/profiles/default/bin";
+        $command = "$envPaths python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
+        
+        $output = shell_exec($command);
         $result = json_decode($output, true);
 
         // 5. فحص النتيجة ومعالجة الخطأ
         if (is_null($result)) {
             return response()->json([
                 'error' => 'فشل تشغيل محرك الذكاء الاصطناعي',
-                'debug_info' => $output, 
-                'suggestion' => 'تأكد من تثبيت pandas و numpy في Railway عبر ملف requirements.txt',
+                'debug_info' => $output, // هنا سيظهر السبب الحقيقي (نقص مكتبة أو مسار)
+                'suggestion' => 'تحقق من الـ Build Logs في Railway للتأكد من تثبيت pandas',
                 'path_used' => $pythonPath
             ], 500);
         }

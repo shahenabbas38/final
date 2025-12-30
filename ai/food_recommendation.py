@@ -158,10 +158,15 @@ def generate_recommendations(profile):
         return {"error": f"Python Error: {str(e)}"}
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        try:
+    try:
+        if len(sys.argv) > 1:
             input_data = json.loads(sys.argv[1])
             result = generate_recommendations(input_data)
-            print(json.dumps(result, ensure_ascii=False))
-        except Exception as e:
-            print(json.dumps({"error": f"Input Parsing Error: {str(e)}"}))
+            # التأكد من طباعة النتيجة فقط
+            sys.stdout.write(json.dumps(result, ensure_ascii=False))
+        else:
+            sys.stdout.write(json.dumps({"error": "No input data provided"}))
+    except Exception as e:
+        # طباعة الخطأ الحقيقي ليظهر في debug_info الخاص بـ Laravel
+        sys.stderr.write(str(e))
+        sys.stdout.write(json.dumps({"error": str(e)}))
