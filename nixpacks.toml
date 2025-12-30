@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php", "python311", "python311Packages.pip"]
+nixPkgs = ["php", "python311", "python311Packages.pip", "nodejs"]
 
 [phases.install]
-cmds = ["composer install", "pip install -r requirements.txt"]
+cmds = ["composer install", "python3 -m pip install -r requirements.txt"]
