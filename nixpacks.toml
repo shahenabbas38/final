@@ -9,5 +9,11 @@ cmds = [
     "python3 -m pip install -r requirements.txt"
 ]
 
+[phases.build]
+cmds = [
+    "npm install && npm run build",
+    "chmod +x ai/food_recommendation.py"
+]
+
 [start]
 cmd = "php artisan serve --host 0.0.0.0 --port $PORT"
