@@ -44,8 +44,8 @@ class NutritionRecommendationController extends Controller
         $jsonParams = json_encode($patientParams);
         
         // تعديل الأمر لضمان إيجاد python3 في بيئة Nixpacks
-        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        
-        $output = shell_exec($command);
+// استبدل السطر الخاص بـ $command بهذا الكود
+        $command = "which python3 && python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        $output = shell_exec($command);
         $result = json_decode($output, true);
 
         // 5. فحص النتيجة ومعالجة الخطأ
