@@ -4,21 +4,18 @@ nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs", "stdenv.cc.c
 [phases.install]
 cmds = [
     "composer install --no-scripts",
-    # مسح البيئة القديمة تماماً لضمان عدم وجود تداخل
     "rm -rf /app/venv",
     "python3 -m venv /app/venv",
     "/app/venv/bin/pip install --upgrade pip",
-    # تثبيت المكتبات بإصدارات محددة ومستقرة جداً لـ Linux
-    "/app/venv/bin/pip install --force-reinstall pandas==2.0.3 numpy==1.24.3 python-dateutil requests"
+    "/app/venv/bin/pip install pandas==2.0.3 numpy==1.24.3 python-dateutil requests"
 ]
 
 [phases.build]
 cmds = [
     "npm install && npm run build",
-    # منح صلاحيات كاملة للمجلدات لضمان عمل Laravel وبايثون
     "chmod -R 777 storage bootstrap/cache ai",
     "chmod +x ai/food_recommendation.py"
 ]
 
 [start]
-cmd = "php artisan config:cache && php artisan route:cache && php artisan serve --host 0.0.0.0 --port $PORT"
+cmd = "php artisan serve --host 0.0.0.0 --port $PORT"
