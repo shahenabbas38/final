@@ -45,8 +45,8 @@ class NutritionRecommendationController extends Controller
         
         // تعديل جوهري: إضافة المسارات الشائعة لبيئات Nixpacks و Heroku في Railway
         $envPaths = "PATH=\$PATH:/usr/bin:/usr/local/bin:/opt/nix/bin:/nix/var/nix/profiles/default/bin";
-        $command = "$envPaths python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
-        
+// استبدل سطر الـ $command بهذا السطر فقط
+        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        
         $output = shell_exec($command);
         $result = json_decode($output, true);
 
