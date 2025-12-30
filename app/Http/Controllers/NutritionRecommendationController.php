@@ -30,51 +30,56 @@ class NutritionRecommendationController extends Controller
             'dob'               => $profile->dob,
         ];
 
-        // 3. تحديث المسار ليشمل مجلد ai
-        // base_path يعطينا المسار الرئيسي، ثم نضيف ai والملف
+        // 3. تحديد المسار الصحيح (مجلد ai بجانب مجلد app في الـ Root)
         $pythonPath = base_path('ai/food_recommendation.py');
         
         if (!file_exists($pythonPath)) {
             return response()->json([
-                'error' => 'الملف غير موجود في مجلد ai',
+                'error' => 'الملف البرمجي للبايثون غير موجود في المسار المحدد',
                 'checked_path' => $pythonPath
             ], 500);
         }
 
-        // 4. تنفيذ الأمر
+        // 4. تنفيذ الأمر مع التأكد من مسار البيئة في Railway
         $jsonParams = json_encode($patientParams);
-        // نستخدم python3 للتوافق مع Railway
-        $command = "PATH=\$PATH:/usr/bin:/usr/local/bin python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        
+        
+        // تعديل الأمر لضمان إيجاد python3 في بيئة Nixpacks
+        $command = "export PATH=\$PATH:/usr/bin:/usr/local/bin:/opt/render/project/src/.heroku/python/bin; python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
+        
         $output = shell_exec($command);
         $result = json_decode($output, true);
 
-        // 5. فحص النتيجة ومعالجة الخطأ بصيغة واضحة
+        // 5. فحص النتيجة ومعالجة الخطأ
         if (is_null($result)) {
             return response()->json([
-                'error' => 'فشل تشغيل الذكاء الاصطناعي',
-                'debug_info' => $output, // هنا سيظهر أي خطأ داخلي في بايثون
+                'error' => 'فشل تشغيل محرك الذكاء الاصطناعي',
+                'debug_info' => $output, 
+                'suggestion' => 'تأكد من تثبيت pandas و numpy في Railway عبر ملف requirements.txt',
                 'path_used' => $pythonPath
             ], 500);
         }
 
         if (isset($result['error'])) {
-            return response()->json(['error' => 'خطأ من البايثون', 'details' => $result['error']], 500);
+            return response()->json([
+                'error' => 'خطأ داخلي في سكربت البايثون',
+                'details' => $result['error']
+            ], 500);
         }
 
-        // 6. حفظ الوجبات (15 وجبة)
+        // 6. حفظ الوجبات في قاعدة البيانات
         foreach (['breakfast', 'lunch', 'dinner'] as $mealCategory) {
-            if (isset($result[$mealCategory])) {
+            if (isset($result[$mealCategory]) && is_array($result[$mealCategory])) {
                 foreach ($result[$mealCategory] as $meal) {
                     NutritionRecommendation::create([
                         'patient_id'    => $user->id,
                         'food_name'     => $meal['food_name'],
                         'meal_type'     => $meal['meal_type'],
-                        'calories'      => $meal['calories'],
-                        'protein'       => $meal['protein'],
-                        'carbohydrates' => $meal['carbohydrates'],
-                        'fat'           => $meal['fat'],
-                        'description'   => $meal['description'],
-                        'confidence'    => $meal['confidence'],
+                        'calories'      => $meal['calories'] ?? 0,
+                        'protein'       => $meal['protein'] ?? 0,
+                        'carbohydrates' => $meal['carbohydrates'] ?? 0,
+                        'fat'           => $meal['fat'] ?? 0,
+                        'description'   => $meal['description'] ?? '',
+                        'confidence'    => $meal['confidence'] ?? 0,
                         'created_at'    => now()
                     ]);
                 }
