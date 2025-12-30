@@ -4,10 +4,9 @@ nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs", "stdenv.cc.c
 [phases.install]
 cmds = [
     "composer install",
-    "rm -rf /app/venv",
     "python3 -m venv /app/venv",
     "/app/venv/bin/pip install --upgrade pip",
-    "/app/venv/bin/pip install --force-reinstall pandas==2.1.4 numpy==1.26.4 python-dateutil requests"
+    "/app/venv/bin/pip install -r requirements.txt"
 ]
 
 [phases.build]
@@ -15,8 +14,9 @@ cmds = [
     "npm install && npm run build",
     "chmod -R 777 storage bootstrap/cache",
     "chmod +x ai/food_recommendation.py",
-    "php artisan config:clear"
+    "php artisan config:clear",
+    "php artisan cache:clear"
 ]
 
 [start]
-cmd = "php artisan serve --host 0.0.0.0 --port $PORT"
+cmd = "php artisan config:cache && php artisan route:cache && php artisan serve --host 0.0.0.0 --port $PORT"
