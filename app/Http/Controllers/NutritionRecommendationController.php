@@ -44,8 +44,7 @@ class NutritionRecommendationController extends Controller
         $jsonParams = json_encode($patientParams);
         
         // تعديل الأمر لضمان إيجاد python3 في بيئة Nixpacks
-        $command = "export PATH=\$PATH:/usr/bin:/usr/local/bin:/opt/render/project/src/.heroku/python/bin; python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
-        
+        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        
         $output = shell_exec($command);
         $result = json_decode($output, true);
 
