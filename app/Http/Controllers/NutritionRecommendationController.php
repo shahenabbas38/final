@@ -30,8 +30,11 @@ class NutritionRecommendationController extends Controller
             'dob'               => $profile->dob,
         ];
 
-        // 3. تحديد المسار المطلق لملف البايثون
+        // 3. تحديد المسارات
         $pythonPath = base_path('ai/food_recommendation.py');
+        
+        // مسار البايثون داخل البيئة الافتراضية التي سيتم إنشاؤها بواسطة nixpacks.toml
+        $venvPythonPath = "/app/venv/bin/python3";
         
         if (!file_exists($pythonPath)) {
             return response()->json([
@@ -40,13 +43,12 @@ class NutritionRecommendationController extends Controller
             ], 500);
         }
 
-        // 4. تنفيذ الأمر مع إجبار النظام على البحث في مسارات Nixpacks
+        // 4. تنفيذ الأمر باستخدام بايثون البيئة الافتراضية
         $jsonParams = json_encode($patientParams);
         
-        // تعديل جوهري: إضافة المسارات الشائعة لبيئات Nixpacks و Heroku في Railway
-        $envPaths = "PATH=\$PATH:/usr/bin:/usr/local/bin:/opt/nix/bin:/nix/var/nix/profiles/default/bin";
-// استبدل سطر الـ $command بهذا السطر فقط
-        $command = "python3 " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";        
+        // نستخدم $venvPythonPath بدلاً من "python3" العادية لضمان الوصول للمكتبات (pandas/numpy)
+        $command = "$venvPythonPath " . escapeshellarg($pythonPath) . " " . escapeshellarg($jsonParams) . " 2>&1";
+        
         $output = shell_exec($command);
         $result = json_decode($output, true);
 
@@ -54,9 +56,10 @@ class NutritionRecommendationController extends Controller
         if (is_null($result)) {
             return response()->json([
                 'error' => 'فشل تشغيل محرك الذكاء الاصطناعي',
-                'debug_info' => $output, // هنا سيظهر السبب الحقيقي (نقص مكتبة أو مسار)
-                'suggestion' => 'تحقق من الـ Build Logs في Railway للتأكد من تثبيت pandas',
-                'path_used' => $pythonPath
+                'debug_info' => $output, 
+                'suggestion' => 'تأكد من نجاح إنشاء الـ venv وتثبيت المكتبات في Railway',
+                'path_used' => $pythonPath,
+                'python_bin' => $venvPythonPath
             ], 500);
         }
 
