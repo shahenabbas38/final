@@ -3,7 +3,7 @@ nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs", "stdenv.cc.c
 
 [phases.install]
 cmds = [
-    "composer install",
+    "composer install --no-scripts",
     "python3 -m venv /app/venv",
     "/app/venv/bin/pip install --upgrade pip",
     "/app/venv/bin/pip install -r requirements.txt"
@@ -13,9 +13,7 @@ cmds = [
 cmds = [
     "npm install && npm run build",
     "chmod -R 777 storage bootstrap/cache",
-    "chmod +x ai/food_recommendation.py",
-    "php artisan config:clear",
-    "php artisan cache:clear"
+    "chmod +x ai/food_recommendation.py"
 ]
 
 [start]
