@@ -4,14 +4,18 @@
 import sys
 import os
 
-# 🛡️ حماية المسارات: منع تداخل numpy مع المجلد الحالي
-# نقوم بإزالة المجلد الحالي من sys.path لضمان استيراد المكتبات من venv فقط
-if os.getcwd() in sys.path:
-    sys.path.remove(os.getcwd())
+# إعطاء الأولوية القصوى لمجلد المكتبات في البيئة الافتراضية
+sys.path.insert(0, '/app/venv/lib/python3.11/site-packages')
+
+# إزالة المجلد الحالي لمنع التداخل
+current_dir = os.getcwd()
+if current_dir in sys.path:
+    sys.path.remove(current_dir)
 
 import json
-import random
 import pandas as pd
+import numpy as np
+import random
 from datetime import datetime
 
 # 📂 تحسين تحديد المسارات لضمان التوافق مع Linux/Railway

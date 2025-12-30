@@ -4,15 +4,19 @@ nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs", "stdenv.cc.c
 [phases.install]
 cmds = [
     "composer install --no-scripts",
+    # مسح البيئة القديمة تماماً لضمان عدم وجود تداخل
+    "rm -rf /app/venv",
     "python3 -m venv /app/venv",
     "/app/venv/bin/pip install --upgrade pip",
-    "/app/venv/bin/pip install -r requirements.txt"
+    # تثبيت المكتبات بإصدارات محددة ومستقرة جداً لـ Linux
+    "/app/venv/bin/pip install --force-reinstall pandas==2.0.3 numpy==1.24.3 python-dateutil requests"
 ]
 
 [phases.build]
 cmds = [
     "npm install && npm run build",
-    "chmod -R 777 storage bootstrap/cache",
+    # منح صلاحيات كاملة للمجلدات لضمان عمل Laravel وبايثون
+    "chmod -R 777 storage bootstrap/cache ai",
     "chmod +x ai/food_recommendation.py"
 ]
 
