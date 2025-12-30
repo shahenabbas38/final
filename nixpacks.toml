@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs"]
+nixPkgs = ["php82", "python311", "python311Packages.pip", "nodejs", "stdenv.cc.cc.lib", "zlib"]
 
 [phases.install]
 cmds = [
