@@ -13,8 +13,11 @@ cmds = [
 cmds = [
     "npm install && npm run build",
     "chmod -R 777 storage bootstrap/cache",
-    "chmod +x ai/food_recommendation.py"
+    "chmod +x ai/food_recommendation.py",
+    "php artisan config:clear",
+    "php artisan route:clear",
+    "php artisan view:clear"
 ]
 
 [start]
-cmd = "php artisan serve --host 0.0.0.0 --port $PORT"
+cmd = "php artisan migrate --force && php artisan serve --host 0.0.0.0 --port $PORT"
