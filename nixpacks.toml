@@ -12,6 +12,7 @@ cmds = [
 [phases.build]
 cmds = [
     "npm install && npm run build",
+    "chmod -R 777 storage bootstrap/cache",
     "chmod +x ai/food_recommendation.py"
 ]
 
