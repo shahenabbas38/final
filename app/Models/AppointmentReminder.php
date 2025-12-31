@@ -11,6 +11,13 @@ class AppointmentReminder extends Model
 
     protected $table = 'appointment_reminders';
 
+    /**
+     * 💡 حل المشكلة:
+     * أخبر لارافيل أن الجدول لا يحتوي على عمود updated_at
+     * أو قم بتعطيل الـ timestamps بالكامل إذا كنت تدير الوقت يدوياً
+     */
+    const UPDATED_AT = null; 
+
     protected $fillable = [
         'appointment_id',
         'remind_at',
@@ -27,10 +34,11 @@ class AppointmentReminder extends Model
     }
 
     /**
-     * 🧍 العلاقة مع المستخدم عبر الموعد (اختياري)
+     * 🧍 العلاقة مع المستخدم عبر الموعد
      */
     public function user()
     {
-        return $this->appointment->user();
+        // تم التعديل لضمان الوصول للعلاقة بشكل صحيح من خلال الموعد
+        return $this->appointment ? $this->appointment->patient : null;
     }
 }
