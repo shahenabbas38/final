@@ -5,22 +5,28 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\MedicationSchedule;
 use App\Models\MedicationIntake;
+use Illuminate\Support\Facades\Auth;
 
 class MedicationScheduleController extends Controller
 {
-    // 📥 عرض جميع الجداول
+    // 📥 عرض جداول المريض المسجل حالياً فقط
     public function index()
     {
-        $schedules = MedicationSchedule::with(['medication', 'intakes', 'patient'])->get();
+        // جلب المعرف من التوكن المسجل
+        $userId = Auth::id(); 
+
+        $schedules = MedicationSchedule::where('patient_id', $userId)
+            ->with(['medication', 'intakes'])
+            ->get();
+
         return response()->json($schedules);
     }
 
-    // 🟢 إنشاء جدول جديد للدواء
+    // 🟢 إنشاء جدول جديد مرتبط تلقائياً بصاحب التوكن
     public function store(Request $request)
     {
         $request->validate([
-            'patient_id' => 'required|integer',
-            'medication_id' => 'required|integer',
+            'medication_id' => 'required|integer|exists:medications,id',
             'start_date' => 'required|date',
             'end_date' => 'nullable|date',
             'times_per_day' => 'required|integer|min:1',
@@ -28,7 +34,7 @@ class MedicationScheduleController extends Controller
         ]);
 
         $schedule = MedicationSchedule::create([
-            'patient_id' => $request->patient_id,
+            'patient_id' => Auth::id(), // الربط التلقائي بالمستخدم الحالي
             'medication_id' => $request->medication_id,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
@@ -36,7 +42,7 @@ class MedicationScheduleController extends Controller
             'times_of_day' => json_encode($request->times_of_day),
         ]);
 
-        // إنشاء جرعات intake تلقائياً (اختياري)
+        // إنشاء جرعات intake تلقائياً
         foreach ($request->times_of_day as $time) {
             MedicationIntake::create([
                 'schedule_id' => $schedule->id,
@@ -51,18 +57,24 @@ class MedicationScheduleController extends Controller
         ], 201);
     }
 
-    // 📄 عرض جدول محدد
+    // 📄 عرض جدول محدد (بشرط أن يخص المريض الحالي)
     public function show($id)
     {
-        $schedule = MedicationSchedule::with(['medication', 'intakes', 'patient'])->findOrFail($id);
+        $schedule = MedicationSchedule::where('patient_id', Auth::id())
+            ->with(['medication', 'intakes'])
+            ->findOrFail($id);
+
         return response()->json($schedule);
     }
 
-    // ✏️ تعديل
+    // ✏️ تعديل الجدول (للمريض الحالي فقط)
     public function update(Request $request, $id)
     {
-        $schedule = MedicationSchedule::findOrFail($id);
-        $schedule->update($request->all());
+        $schedule = MedicationSchedule::where('patient_id', Auth::id())->findOrFail($id);
+        
+        $schedule->update($request->only([
+            'medication_id', 'start_date', 'end_date', 'times_per_day'
+        ]));
 
         return response()->json([
             'message' => 'Medication schedule updated successfully ✏️',
@@ -70,10 +82,11 @@ class MedicationScheduleController extends Controller
         ]);
     }
 
-    // 🗑️ حذف جدول مع الجرعات المرتبطة
+    // 🗑️ حذف الجدول (للمريض الحالي فقط)
     public function destroy($id)
     {
-        $schedule = MedicationSchedule::findOrFail($id);
+        $schedule = MedicationSchedule::where('patient_id', Auth::id())->findOrFail($id);
+        
         $schedule->intakes()->delete();
         $schedule->delete();
 
@@ -82,10 +95,14 @@ class MedicationScheduleController extends Controller
         ]);
     }
 
-    // ✅ تحديث حالة جرعة
+    // ✅ تحديث حالة جرعة معينة
     public function updateIntake(Request $request, $intake_id)
     {
-        $intake = MedicationIntake::findOrFail($intake_id);
+        // التحقق من أن الجرعة تتبع لجدول يملكه المريض الحالي
+        $intake = MedicationIntake::whereHas('schedule', function($query) {
+            $query->where('patient_id', Auth::id());
+        })->findOrFail($intake_id);
+
         $intake->update([
             'status' => $request->status,
             'taken_time' => $request->taken_time ?? now()

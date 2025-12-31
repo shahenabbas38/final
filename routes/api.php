@@ -197,15 +197,27 @@ Route::middleware('auth:sanctum')->group(function () {
 });
     /*************** medication-schedules *********************************/
 
+// جميع هذه المسارات تتطلب Token (المريض يجب أن يكون مسجلاً للدخول)
 Route::middleware('auth:sanctum')->group(function () {
+
+    // 1. جلب جميع جداول المريض (الخاصة بصاحب التوكن فقط)
     Route::get('/medication-schedules', [MedicationScheduleController::class, 'index']);
+
+    // 2. إنشاء جدول دواء جديد (سيتم ربطه تلقائياً بالمريض من خلال التوكن)
     Route::post('/medication-schedules', [MedicationScheduleController::class, 'store']);
+
+    // 3. عرض تفاصيل جدول معين (يجب أن يخص المريض صاحب التوكن)
     Route::get('/medication-schedules/{id}', [MedicationScheduleController::class, 'show']);
+
+    // 4. تعديل جدول دواء (يخص المريض الحالي فقط)
     Route::put('/medication-schedules/{id}', [MedicationScheduleController::class, 'update']);
+
+    // 5. حذف جدول دواء مع جرعاته
     Route::delete('/medication-schedules/{id}', [MedicationScheduleController::class, 'destroy']);
 
-    // تحديث حالة الجرعة intake
+    // 6. تحديث حالة جرعة محددة (تم أخذها/لم تُؤخذ)
     Route::put('/medication-intakes/{id}', [MedicationScheduleController::class, 'updateIntake']);
+    
 });
     /***************LabTest *********************************/
 
