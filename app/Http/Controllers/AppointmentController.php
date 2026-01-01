@@ -11,14 +11,31 @@ use Illuminate\Support\Facades\Auth;
 class AppointmentController extends Controller
 {
     /**
-     * 📅 جلب مواعيد المريض بناءً على التوكن (التعديل الجديد)
+     * 👥 جلب عدد المرضى الفريدين التابعين للدكتور (التعديل الجديد)
+     * يعتمد على عدد المرضى الذين لديهم سجل مواعيد مع الطبيب الحالي
+     */
+    public function getDoctorPatientsCount()
+    {
+        $doctorId = Auth::id(); // استخراج معرف الطبيب من التوكن
+
+        // حساب عدد المرضى بدون تكرار (بناءً على حقل patient_id في جدول المواعيد)
+        $count = Appointment::where('doctor_id', $doctorId)
+            ->distinct('patient_id')
+            ->count('patient_id');
+
+        return response()->json([
+            'message' => 'تم جلب عدد المرضى بنجاح ✅',
+            'patients_count' => $count
+        ], 200);
+    }
+
+    /**
+     * 📅 جلب مواعيد المريض بناءً على التوكن
      */
     public function getPatientAppointments()
     {
-        $user = Auth::user(); // جلب المستخدم من التوكن
+        $user = Auth::user();
 
-        // 1. التحقق من اكتمال الملف الشخصي للمريض
-        // نبحث في جدول patient_profiles عن سجل يخص هذا المستخدم
         $profile = PatientProfile::where('user_id', $user->id)->first();
 
         if (!$profile) {
@@ -27,13 +44,11 @@ class AppointmentController extends Controller
             ], 403);
         }
 
-        // 2. جلب المواعيد الخاصة بهذا المريض فقط
         $appointments = Appointment::with(['doctor', 'clinic'])
             ->where('patient_id', $user->id)
             ->orderBy('start_at', 'asc')
             ->get();
 
-        // 3. التحقق من وجود مواعيد
         if ($appointments->isEmpty()) {
             return response()->json([
                 'message' => 'ليس لديك مواعيد حالياً.',
@@ -79,7 +94,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * 📋 عرض جميع المواعيد (للمسؤولين مثلاً)
+     * 📋 عرض جميع المواعيد
      */
     public function index()
     {

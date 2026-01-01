@@ -107,7 +107,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/appointments', [AppointmentController::class, 'store']);
     Route::put('/appointments/{id}', [AppointmentController::class, 'update']);
     Route::delete('/appointments/{id}', [AppointmentController::class, 'destroy']);
-
+    /***مشان نحسب ععدد المرضى التابعين للدكتور */
+    Route::get('/doctor/patients-count', [AppointmentController::class, 'getDoctorPatientsCount'])->middleware('auth:sanctum');
     // Appointment Reminders ⏰
     Route::post('/reminders', [AppointmentReminderController::class, 'store']);
     Route::get('/reminders', [AppointmentReminderController::class, 'index']);
