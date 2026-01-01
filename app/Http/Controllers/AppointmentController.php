@@ -11,6 +11,43 @@ use Illuminate\Support\Facades\Auth;
 class AppointmentController extends Controller
 {
     /**
+     * 📅 جلب مواعيد المريض بناءً على التوكن (التعديل الجديد)
+     */
+    public function getPatientAppointments()
+    {
+        $user = Auth::user(); // جلب المستخدم من التوكن
+
+        // 1. التحقق من اكتمال الملف الشخصي للمريض
+        // نبحث في جدول patient_profiles عن سجل يخص هذا المستخدم
+        $profile = PatientProfile::where('user_id', $user->id)->first();
+
+        if (!$profile) {
+            return response()->json([
+                'message' => 'يرجى إتمام معلومات الملف الشخصي أولاً للوصول إلى المواعيد.'
+            ], 403);
+        }
+
+        // 2. جلب المواعيد الخاصة بهذا المريض فقط
+        $appointments = Appointment::with(['doctor', 'clinic'])
+            ->where('patient_id', $user->id)
+            ->orderBy('start_at', 'asc')
+            ->get();
+
+        // 3. التحقق من وجود مواعيد
+        if ($appointments->isEmpty()) {
+            return response()->json([
+                'message' => 'ليس لديك مواعيد حالياً.',
+                'appointments' => []
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'تم جلب مواعيدك بنجاح ✅',
+            'appointments' => $appointments,
+        ]);
+    }
+
+    /**
      * 📅 إنشاء موعد جديد
      */
     public function store(Request $request)
@@ -42,7 +79,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * 📋 عرض جميع المواعيد
+     * 📋 عرض جميع المواعيد (للمسؤولين مثلاً)
      */
     public function index()
     {
