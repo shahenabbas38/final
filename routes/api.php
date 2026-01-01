@@ -182,6 +182,7 @@ Route::middleware('auth:sanctum')->group(function () {
     /*************** prescriptions *********************************/
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/my-prescriptions', [PrescriptionController::class, 'getMyPrescriptions']);
     Route::get('/prescriptions', [PrescriptionController::class, 'index']);
     Route::post('/prescriptions', [PrescriptionController::class, 'store']);
     Route::get('/prescriptions/{id}', [PrescriptionController::class, 'show']);
@@ -223,6 +224,7 @@ Route::middleware('auth:sanctum')->group(function () {
     /***************LabTest *********************************/
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/my-lab-tests', [LabTestController::class, 'getMyLabTests']);
     Route::get('/lab-tests', [LabTestController::class, 'index']);
     Route::post('/lab-tests', [LabTestController::class, 'store']);
     Route::get('/lab-tests/{id}', [LabTestController::class, 'show']);
