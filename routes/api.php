@@ -122,6 +122,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/conversations', [ChatController::class, 'myConversations']);
     Route::get('/chat/conversations/{id}/messages', [ChatController::class, 'getMessages']);
     Route::post('/chat/messages/{id}/seen', [ChatController::class, 'markAsSeen']);
+    // رسائل المريض غير المقروءة
+    Route::get('/patient/unseen-messages', [ChatController::class, 'getPatientUnseenMessages']);
+    // رسائل الطبيب غير المقروءة
+    Route::get('/doctor/unseen-messages', [ChatController::class, 'getDoctorUnseenMessages']);
 
     /*************** DASHBOARD *********************************/
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);

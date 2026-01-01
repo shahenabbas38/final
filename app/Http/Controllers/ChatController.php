@@ -16,7 +16,6 @@ class ChatController extends Controller
      */
     public function createConversation(Request $request)
     {
-        // تم التعديل لطلب user_id بدلاً من إنشاء محادثة فارغة
         $request->validate([
             'user_id' => 'required|exists:users,id'
         ]);
@@ -25,13 +24,11 @@ class ChatController extends Controller
             'created_at' => now(),
         ]);
 
-        // إضافة المنشئ
         ChatMember::create([
             'conversation_id' => $conversation->id,
             'user_id' => Auth::id(),
         ]);
 
-        // إضافة الطرف الآخر مباشرة (توفيراً للوقت والطلبات)
         ChatMember::create([
             'conversation_id' => $conversation->id,
             'user_id' => $request->user_id,
@@ -72,18 +69,15 @@ class ChatController extends Controller
         foreach ($members as $member) {
             $recipient = User::find($member->user_id);
             
-            // قمنا بتعديل المنطق هنا:
-            // 1. إذا وجد مفتاح تشفير، يتم التشفير
             if ($recipient && $recipient->public_key) {
                 $publicKey = openssl_pkey_get_public($recipient->public_key);
                 if ($publicKey) {
                     openssl_public_encrypt($originalText, $encrypted, $publicKey);
                     $encryptedPayload[$recipient->id] = base64_encode($encrypted);
-                    continue; // ننتقل للعضو التالي
+                    continue; 
                 }
             }
 
-            // 2. إذا لم يوجد مفتاح، يتم تخزين النص العادي (هذا يحل مشكلة الـ null)
             $encryptedPayload[$recipient->id] = $originalText;
         }
 
@@ -101,8 +95,50 @@ class ChatController extends Controller
         ], 201);
     }
 
-    // ... باقي الدوال (myConversations, getMessages, markAsSeen) تبقى كما هي لأن منطقها سليم
-    
+    /**
+     * 📥 جلب الرسائل غير المقروءة للمريض (بناءً على التوكن)
+     */
+    public function getPatientUnseenMessages()
+    {
+        $userId = Auth::id();
+
+        $unseenMessages = ChatMessage::whereHas('conversation.members', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })
+        ->whereNull('seen_at') 
+        ->where('sender_user_id', '!=', $userId)
+        ->with(['sender', 'conversation'])
+        ->orderBy('sent_at', 'desc')
+        ->get();
+
+        return response()->json([
+            'count' => $unseenMessages->count(),
+            'messages' => $unseenMessages
+        ]);
+    }
+
+    /**
+     * 📥 جلب الرسائل غير المقروءة للطبيب (بناءً على التوكن)
+     */
+    public function getDoctorUnseenMessages()
+    {
+        $userId = Auth::id();
+
+        $unseenMessages = ChatMessage::whereHas('conversation.members', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })
+        ->whereNull('seen_at') 
+        ->where('sender_user_id', '!=', $userId)
+        ->with(['sender', 'conversation'])
+        ->orderBy('sent_at', 'desc')
+        ->get();
+
+        return response()->json([
+            'count' => $unseenMessages->count(),
+            'messages' => $unseenMessages
+        ]);
+    }
+
     public function myConversations()
     {
         $conversations = ChatConversation::whereHas('members', function($q){
@@ -124,7 +160,6 @@ class ChatController extends Controller
 
         $messages = $messages->map(function ($msg) use ($userId) {
             $payload = json_decode($msg->body, true);
-            // سيتم إرجاع النص (سواء كان مشفراً أو عادياً) بدلاً من null
             $msg->body = $payload[$userId] ?? null;
             return $msg;
         });
