@@ -12,26 +12,22 @@ class NutritionRecommendationController extends Controller
 {
     public function store(Request $request)
     {
-        // 1. جلب المستخدم من التوكن (Bearer Token)
+        // 1. جلب المريض من التوكن
         $user = Auth::user();
         
-        // 2. جلب بروفايل المريض مع التأكد من وجود البيانات الأساسية
+        // 2. جلب بيانات المريض من قاعدة البيانات
         $profile = PatientProfile::where('user_id', $user->id)->first();
         
         if (!$profile) {
-            return response()->json(['message' => 'بروفايل المريض غير موجود، يرجى إكمال بياناتك أولاً'], 404);
+            return response()->json(['message' => 'بروفايل المريض غير موجود في النظام'], 404);
         }
 
-        // تحقق بسيط لضمان عدم إرسال قيم فارغة للبايثون قد تسبب خطأ
-        if (!$profile->weight_kg || !$profile->height_cm || !$profile->dob) {
-            return response()->json(['message' => 'بيانات الوزن أو الطول أو تاريخ الميلاد ناقصة في ملفك الشخصي'], 422);
-        }
-
-        // 3. رابط خدمة البايثون (تأكد من استبداله برابط Railway الفعلي)
-        $pythonApiUrl = "https://python-production-xxxx.up.railway.app/recommend";
+        // 3. الرابط الخاص بك الذي يعمل الآن على Railway
+        // تم وضع رابطك هنا: python-production-9689.up.railway.app
+        $pythonApiUrl = "https://python-production-9689.up.railway.app/recommend";
 
         try {
-            // 4. إرسال البيانات (المستخدم لا يرسل شيئاً، الـ Laravel هو من يجهز الـ Body)
+            // 4. إرسال البيانات لخدمة البايثون
             $response = Http::timeout(60)->post($pythonApiUrl, [
                 'full_name'         => $profile->full_name,
                 'weight_kg'         => (float) $profile->weight_kg,
@@ -43,14 +39,14 @@ class NutritionRecommendationController extends Controller
 
             if ($response->failed()) {
                 return response()->json([
-                    'error' => 'محرك الذكاء الاصطناعي لا يستجيب حالياً',
+                    'error' => 'تعذر الاتصال بمحرك الذكاء الاصطناعي',
                     'details' => $response->body()
                 ], 500);
             }
 
             $result = $response->json();
 
-            // 5. حفظ التوصيات في قاعدة البيانات لغايات الأرشفة والعرض لاحقاً
+            // 5. حفظ النتائج في قاعدة بيانات MySQL
             foreach (['breakfast', 'lunch', 'dinner'] as $mealCategory) {
                 if (isset($result['meals'][$mealCategory])) {
                     foreach ($result['meals'][$mealCategory] as $meal) {
@@ -62,7 +58,7 @@ class NutritionRecommendationController extends Controller
                             'protein'       => $meal['protein'] ?? 0,
                             'carbohydrates' => $meal['carbohydrates'] ?? 0,
                             'fat'           => $meal['fat'] ?? 0,
-                            'description'   => "وجبة مقترحة بناءً على تحليل الحالة الصحية",
+                            'description'   => "توصية ذكية بناءً على الحالة الصحية",
                             'confidence'    => 0.95,
                             'created_at'    => now()
                         ]);
@@ -72,14 +68,13 @@ class NutritionRecommendationController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'patient' => $user->full_name,
-                'daily_calories_needed' => $result['patient_info']['daily_calories'] ?? null,
-                'recommendations' => $result['meals']
+                'message' => 'تم توليد الخطة الغذائية بنجاح',
+                'data' => $result
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'حدث خطأ غير متوقع',
+                'error' => 'حدث خطأ فني',
                 'message' => $e->getMessage()
             ], 500);
         }
