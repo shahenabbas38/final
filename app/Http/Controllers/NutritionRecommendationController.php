@@ -6,28 +6,33 @@ use App\Models\NutritionRecommendation;
 use App\Models\PatientProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http; // أضفنا هذا السطر للتعامل مع الـ API
+use Illuminate\Support\Facades\Http;
 
 class NutritionRecommendationController extends Controller
 {
     public function store(Request $request)
     {
+        // 1. جلب المستخدم من التوكن (Bearer Token)
         $user = Auth::user();
         
-        // 1. جلب بروفايل المريض من قاعدة البيانات
+        // 2. جلب بروفايل المريض مع التأكد من وجود البيانات الأساسية
         $profile = PatientProfile::where('user_id', $user->id)->first();
         
         if (!$profile) {
-            return response()->json(['message' => 'بروفايل المريض غير موجود في النظام'], 404);
+            return response()->json(['message' => 'بروفايل المريض غير موجود، يرجى إكمال بياناتك أولاً'], 404);
         }
 
-        // 2. الرابط الجديد الخاص بك من Railway (قم بتعديله بالرابط الحقيقي)
-        // لا تنسَ إضافة /recommend في نهاية الرابط
+        // تحقق بسيط لضمان عدم إرسال قيم فارغة للبايثون قد تسبب خطأ
+        if (!$profile->weight_kg || !$profile->height_cm || !$profile->dob) {
+            return response()->json(['message' => 'بيانات الوزن أو الطول أو تاريخ الميلاد ناقصة في ملفك الشخصي'], 422);
+        }
+
+        // 3. رابط خدمة البايثون (تأكد من استبداله برابط Railway الفعلي)
         $pythonApiUrl = "https://python-production-xxxx.up.railway.app/recommend";
 
         try {
-            // 3. إرسال البيانات إلى خدمة البايثون عبر HTTP
-            $response = Http::timeout(30)->post($pythonApiUrl, [
+            // 4. إرسال البيانات (المستخدم لا يرسل شيئاً، الـ Laravel هو من يجهز الـ Body)
+            $response = Http::timeout(60)->post($pythonApiUrl, [
                 'full_name'         => $profile->full_name,
                 'weight_kg'         => (float) $profile->weight_kg,
                 'height_cm'         => (float) $profile->height_cm,
@@ -36,18 +41,16 @@ class NutritionRecommendationController extends Controller
                 'primary_condition' => $profile->primary_condition ?? 'NONE',
             ]);
 
-            // 4. فحص استجابة الخدمة
             if ($response->failed()) {
                 return response()->json([
-                    'error' => 'تعذر الاتصال بمحرك الذكاء الاصطناعي',
+                    'error' => 'محرك الذكاء الاصطناعي لا يستجيب حالياً',
                     'details' => $response->body()
                 ], 500);
             }
 
             $result = $response->json();
 
-            // 5. حفظ الوجبات المقترحة في قاعدة البيانات
-            // ملاحظة: قمت بتعديل أسماء الحقول لتطابق الرد القادم من main.py الجديد
+            // 5. حفظ التوصيات في قاعدة البيانات لغايات الأرشفة والعرض لاحقاً
             foreach (['breakfast', 'lunch', 'dinner'] as $mealCategory) {
                 if (isset($result['meals'][$mealCategory])) {
                     foreach ($result['meals'][$mealCategory] as $meal) {
@@ -59,7 +62,7 @@ class NutritionRecommendationController extends Controller
                             'protein'       => $meal['protein'] ?? 0,
                             'carbohydrates' => $meal['carbohydrates'] ?? 0,
                             'fat'           => $meal['fat'] ?? 0,
-                            'description'   => "وجبة مقترحة آلياً بناءً على حالتك الصحية",
+                            'description'   => "وجبة مقترحة بناءً على تحليل الحالة الصحية",
                             'confidence'    => 0.95,
                             'created_at'    => now()
                         ]);
@@ -69,13 +72,14 @@ class NutritionRecommendationController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'تم توليد وحفظ التوصيات الغذائية بنجاح',
-                'data' => $result
+                'patient' => $user->full_name,
+                'daily_calories_needed' => $result['patient_info']['daily_calories'] ?? null,
+                'recommendations' => $result['meals']
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'حدث خطأ أثناء التواصل مع خدمة البايثون',
+                'error' => 'حدث خطأ غير متوقع',
                 'message' => $e->getMessage()
             ], 500);
         }
