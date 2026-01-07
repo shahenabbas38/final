@@ -10,24 +10,70 @@ use Illuminate\Support\Facades\Http;
 
 class NutritionRecommendationController extends Controller
 {
-    public function store(Request $request)
+    /**
+     * عرض تاريخ التوصيات الخاص بالمريض الحالي فقط
+     * GET /api/nutrition/recommendations
+     */
+    public function index()
     {
-        // 1. جلب المريض من التوكن
+        // جلب المستخدم صاحب التوكن الحالي
         $user = Auth::user();
         
-        // 2. جلب بيانات المريض من قاعدة البيانات
+        // جلب السجلات المرتبطة بـ id هذا المريض فقط لضمان الخصوصية
+        $recommendations = NutritionRecommendation::where('patient_id', $user->id)
+            ->orderBy('created_at', 'desc') // ترتيب من الأحدث إلى الأقدم
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $recommendations
+        ]);
+    }
+
+    /**
+     * جلب آخر خطة غذائية تم توليدها للمريض مقسمة حسب الوجبات
+     * GET /api/nutrition/my-plan
+     */
+    public function getMyRecommendations()
+    {
+        $user = Auth::user();
+
+        // جلب آخر التوصيات لهذا المريض فقط وتقسيمها حسب نوع الوجبة
+        $plan = NutritionRecommendation::where('patient_id', $user->id)
+            ->latest()
+            ->get()
+            ->groupBy('meal_type'); 
+
+        if ($plan->isEmpty()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'لا توجد خطة غذائية مسجلة لهذا الحساب'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'current_plan' => $plan
+        ]);
+    }
+
+    /**
+     * توليد توصيات جديدة عبر الاتصال بمحرك الذكاء الاصطناعي
+     * POST /api/nutrition/recommendations/generate
+     */
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        
         $profile = PatientProfile::where('user_id', $user->id)->first();
         
         if (!$profile) {
             return response()->json(['message' => 'بروفايل المريض غير موجود في النظام'], 404);
         }
 
-        // 3. الرابط الخاص بك الذي يعمل الآن على Railway
-        // تم وضع رابطك هنا: python-production-9689.up.railway.app
         $pythonApiUrl = "https://python-production-9689.up.railway.app/recommend";
 
         try {
-            // 4. إرسال البيانات لخدمة البايثون
             $response = Http::timeout(60)->post($pythonApiUrl, [
                 'full_name'         => $profile->full_name,
                 'weight_kg'         => (float) $profile->weight_kg,
@@ -46,7 +92,7 @@ class NutritionRecommendationController extends Controller
 
             $result = $response->json();
 
-            // 5. حفظ النتائج في قاعدة بيانات MySQL
+            // حفظ النتائج مرتبطة بـ ID المريض الحالي
             foreach (['breakfast', 'lunch', 'dinner'] as $mealCategory) {
                 if (isset($result['meals'][$mealCategory])) {
                     foreach ($result['meals'][$mealCategory] as $meal) {
