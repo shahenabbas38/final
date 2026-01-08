@@ -11,6 +11,18 @@ use Illuminate\Support\Facades\Http;
 class NutritionRecommendationController extends Controller
 {
     /**
+     * ✅ الدالة الجديدة: عرض سجل التوصيات لجميع المرضى في لوحة التحكم (Admin Panel)
+     * تم إضافتها لتخدم واجهة الـ Blade دون التأثير على الـ API
+     */
+    public function adminIndex()
+    {
+        // جلب التوصيات مع بيانات المريض المرتبطة وترتيبها من الأحدث
+        $recommendations = NutritionRecommendation::with('patient')->latest()->paginate(15);
+        
+        return view('admin.nutrition.index', compact('recommendations'));
+    }
+
+    /**
      * عرض تاريخ التوصيات الخاص بالمريض الحالي فقط
      * GET /api/nutrition/recommendations
      */

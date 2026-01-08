@@ -358,6 +358,11 @@ return [
             'url'  => 'panel/specialties', // حسب الـ Route prefix الذي وضعتَه
             'icon' => 'fas fa-fw fa-stethoscope',
         ],
+        [
+            'text' => 'تقارير التغذية الذكية',
+            'route'  => 'admin.nutrition.reports', // اسم المسار من ملف web.php
+            'icon' => 'fas fa-fw fa-utensils',
+        ],
     ],
 
     /*
