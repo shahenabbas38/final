@@ -30,6 +30,7 @@ Route::group(['prefix' => 'panel'], function () {
                 'patients' => User::where('role', 'PATIENT')->count(),
                 'clinics'  => DB::table('clinics')->count(),
                 'pending'  => DB::table('appointments')->where('status', 'PENDING')->count(),
+                'specialties' => DB::table('specialties')->count(), // السطر الجديد
             ];
             return view('admin.dashboard', compact('stats'));
         })->name('admin.dashboard');
