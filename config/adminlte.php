@@ -353,6 +353,11 @@ return [
             'url'  => 'panel/settings',
             'icon' => 'fas fa-fw fa-lock',
         ],
+        [
+            'text' => 'التخصصات الطبية',
+            'url'  => 'panel/specialties', // حسب الـ Route prefix الذي وضعتَه
+            'icon' => 'fas fa-fw fa-stethoscope',
+        ],
     ],
 
     /*

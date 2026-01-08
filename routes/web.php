@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminWebAuthController;
+use App\Http\Controllers\SpecialtyWebController; // الكنترولر الجديد
+use App\Http\Controllers\NutritionRecommendationController; // كنترولر التغذية
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -54,7 +56,12 @@ Route::group(['prefix' => 'panel'], function () {
         Route::get('/appointments', [AdminWebAuthController::class, 'indexAppointments']);
         Route::get('/appointments/update/{id}/{status}', [AdminWebAuthController::class, 'updateAppointmentStatus']);
 
+        // --- الإضافات الجديدة (إدارة التخصصات والتقارير الغذائية) ---
+        Route::resource('specialties', SpecialtyWebController::class)->names('admin.specialties');
+        Route::get('nutrition-reports', [NutritionRecommendationController::class, 'adminIndex'])->name('admin.nutrition.reports');
+
         // تسجيل الخروج
         Route::post('/logout', [AdminWebAuthController::class, 'logout'])->name('logout');
     });
+    
 });
