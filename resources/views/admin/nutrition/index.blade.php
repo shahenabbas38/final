@@ -11,6 +11,7 @@
     <div class="card-header">
         <h3 class="card-title text-bold">سجل الوجبات الموصى بها للمرضى</h3>
     </div>
+    
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover table-striped mb-0">
@@ -44,7 +45,8 @@
                                     دهون: <b>{{ $rec->fat }}g</b>
                                 </small>
                             </td>
-                            <td>{{ \Carbon\Carbon::parse($rec->created_at)->format('Y-m-d H:i') }}</td>                        </tr>
+                            <td>{{ \Carbon\Carbon::parse($rec->created_at)->format('Y-m-d H:i') }}</td>
+                        </tr>
                     @empty
                         <tr>
                             <td colspan="6" class="text-center py-5">
@@ -57,9 +59,21 @@
             </table>
         </div>
     </div>
+
+    {{-- التعديل هنا: تنسيق أزرار التنقل بشكل احترافي --}}
     @if($recommendations->hasPages())
         <div class="card-footer clearfix">
-            {{ $recommendations->links() }}
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-muted">
+                    <small>
+                        عرض السجلات من <b>{{ $recommendations->firstItem() }}</b> إلى <b>{{ $recommendations->lastItem() }}</b> 
+                        من أصل <b>{{ $recommendations->total() }}</b> نتيجة
+                    </small>
+                </div>
+                <div class="pagination-sm">
+                    {{ $recommendations->links() }}
+                </div>
+            </div>
         </div>
     @endif
 </div>
@@ -68,6 +82,14 @@
 @section('css')
     <style>
         .table td { vertical-align: middle !important; }
-        .badge { font-weight: 500; }
+        .badge { font-weight: 500; font-size: 0.9rem; }
+        
+        /* تحسين شكل أزرار الترقيم لتبدو كأزرار حقيقية */
+        .pagination { margin: 0; }
+        .page-item.active .page-link {
+            background-color: #28a745; /* لون أخضر متناسق مع قسم التغذية */
+            border-color: #28a745;
+        }
+        .page-link { color: #28a745; }
     </style>
 @stop
