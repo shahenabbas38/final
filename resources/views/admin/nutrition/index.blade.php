@@ -44,8 +44,7 @@
                                     دهون: <b>{{ $rec->fat }}g</b>
                                 </small>
                             </td>
-                            <td>{{ $rec->created_at->format('Y-m-d H:i') }}</td>
-                        </tr>
+                            <td>{{ \Carbon\Carbon::parse($rec->created_at)->format('Y-m-d H:i') }}</td>                        </tr>
                     @empty
                         <tr>
                             <td colspan="6" class="text-center py-5">

@@ -10,7 +10,9 @@ class NutritionRecommendation extends Model
     use HasFactory;
 
     protected $table = 'nutrition_recommendations';
-    public $timestamps = false; // ✅ لأنه لا يوجد created_at و updated_at تلقائي
+    
+    // بما أنك تدير التوقيت يدوياً
+    public $timestamps = false; 
 
     protected $fillable = [
         'patient_id',
@@ -21,13 +23,22 @@ class NutritionRecommendation extends Model
         'fat',
         'description',
         'confidence',
-        'meal_type',   // 🆕 تمت إضافته هنا
+        'meal_type',
         'created_at'
+    ];
+
+    /**
+     * ✅ التعديل المطلوب هنا:
+     * هذا السطر يخبر لارافل بتحويل created_at من نص إلى كائن تاريخ تلقائياً
+     */
+    protected $casts = [
+        'created_at' => 'datetime',
     ];
 
     // علاقة مع المريض
     public function patient()
     {
+        // الربط مع ملف المريض الشخصي باستخدام user_id
         return $this->belongsTo(\App\Models\PatientProfile::class, 'patient_id', 'user_id');
     }
 }
